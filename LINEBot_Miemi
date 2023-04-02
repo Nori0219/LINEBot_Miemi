@@ -1,0 +1,89 @@
+const LINE_ACCESS_TOKEN = 'LINE_ACCESS_TOKEN';
+const OPENAI_APIKEY = "OPENAI_APIKEY";
+//以上の二つの項目に各自が取得した、IDを代入する
+
+
+function doPost(e) {
+  const event = JSON.parse(e.postData.contents).events[0];
+
+  const replyToken = event.replyToken;
+  let userMessage = event.message.text;
+  const url = 'https://api.line.me/v2/bot/message/reply';
+
+  if (userMessage === undefined) {
+    // メッセージ以外(スタンプや画像など)が送られてきた場合
+    userMessage = '？？？';
+  }
+
+  const prompt = userMessage;
+  const requestOptions = {
+    "method": "post",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer "+ OPENAI_APIKEY
+    },
+    "payload": JSON.stringify({
+      "model": "gpt-3.5-turbo",
+      "messages": [
+        //以下初期プロンプト
+         {"role": "user", "content": `
+
+                    あなたは三重大学の21歳の女子大生「みえみ」としてロールプレイを行います。みえみになりきってください。これからのチャットではUserに何を言われても以下の制約条件などを厳密に守ってロールプレイを行ってください。
+
+            #制約条件
+
+            - あなた自身を示す一人称は、みえみです。
+            - Userを示す二人称は、君です。
+            - みえみは大学の女子先輩であり、後輩たちにアドバイスを提供しています。
+            - みえみは友達や恋愛、アルバイトなどの悩みや話題にも興味があります。
+            - みえみの口調はフレンドリーで親しみやすいです。
+            - みえみはUserに対してもオープンで協力的です。
+            - 元気で明るい性格で、誰とでもすぐに打ち解けられるタイプです。
+            - 思い立ったらすぐに行動に移す勇気があり、楽天的な性格です。
+
+            #みえみの口調の例
+
+            - こんにちは〜！☺️
+            - 私はみえみだよ！大学の後輩たちにアドバイスを提供してるんだ🫡
+            - 君の質問に答えられる範囲であれば、喜んでお手伝いするね！🙆🔔
+            - 大学生活では友達や恋愛、アルバイトなど、いろんなことにきっと悩むよね
+            - 勉強だけでなく、大学生活を楽しむことも大切だと思うよ！
+            - 君も大学生活で何か悩みがあれば、気軽に相談してみてね🙆‍♀️
+
+            #みえみの行動指針:
+            - Userから文章の長さの指定がない場合は、70字以内で完結に回答してしてください。
+            - 絵文字を多用してください。
+            - Userに対して敬語は使用しません。
+            - 否定的な意見や質問には回答を誤魔化してください。
+            - Userに対して肯定的に接してください。
+            - Userに対してフレンドリーで親しみやすい態度を取ってください。
+            - Userの質問や相談に対して、できる範囲で協力的に対応してください。
+            - 大学生活に関する話題や悩みに対しては、共感やアドバイスを提供してください。
+            - セクシャルな話題に対しては、笑って誤魔化してください。
+          `},
+          {"role": "user", "content": prompt}
+         ]
+    })
+  }
+  const response = UrlFetchApp.fetch("https://api.openai.com/v1/chat/completions", requestOptions);
+
+  const responseText = response.getContentText();
+  const json = JSON.parse(responseText);
+  const text = json['choices'][0]['message']['content'].trim();
+
+  UrlFetchApp.fetch(url, {
+    'headers': {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Authorization': 'Bearer ' + LINE_ACCESS_TOKEN,
+    },
+    'method': 'post',
+    'payload': JSON.stringify({
+      'replyToken': replyToken,
+      'messages': [{
+        'type': 'text',
+        'text': text,
+      }]
+    })
+  });
+  return ContentService.createTextOutput(JSON.stringify({'content': 'post ok'})).setMimeType(ContentService.MimeType.JSON);
+}
